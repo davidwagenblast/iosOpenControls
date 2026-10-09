@@ -25,22 +25,35 @@ final class MemoryTransport: SyncTransport {
     private let lock = NSLock()
     private var envelopes: [Envelope] = []
 
-    func send(_ envelope: Envelope) async throws {
+    // Locking lives in synchronous helpers: NSLock must not be held across an `await`.
+    private func append(_ envelope: Envelope) {
         lock.lock(); defer { lock.unlock() }
         envelopes.append(envelope)
     }
 
-    func fetch(channelID: String, from sender: Sender, after timestamp: Int64) async throws -> [Envelope] {
+    private func matching(channelID: String, from sender: Sender, after timestamp: Int64) -> [Envelope] {
         lock.lock(); defer { lock.unlock() }
         return envelopes
             .filter { $0.channelID == channelID && $0.sender == sender && $0.timestamp > timestamp }
             .sorted { $0.timestamp < $1.timestamp }
     }
 
+    private func remove(channelID: String, sentBy sender: Sender, before cutoff: Int64) {
+        lock.lock(); defer { lock.unlock() }
+        envelopes.removeAll { $0.channelID == channelID && $0.sender == sender && $0.timestamp < cutoff }
+    }
+
+    func send(_ envelope: Envelope) async throws {
+        append(envelope)
+    }
+
+    func fetch(channelID: String, from sender: Sender, after timestamp: Int64) async throws -> [Envelope] {
+        matching(channelID: channelID, from: sender, after: timestamp)
+    }
+
     func subscribe(channelID: String, to sender: Sender, specs: [SubscriptionSpec]) async throws {}
 
     func prune(channelID: String, sentBy sender: Sender, before cutoff: Int64) async {
-        lock.lock(); defer { lock.unlock() }
-        envelopes.removeAll { $0.channelID == channelID && $0.sender == sender && $0.timestamp < cutoff }
+        remove(channelID: channelID, sentBy: sender, before: cutoff)
     }
 }
