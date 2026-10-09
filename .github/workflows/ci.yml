@@ -49,6 +49,14 @@ jobs:
         env:
           NSUnbufferedIO: "YES"
 
+      - name: Confirm every target was compiled
+        run: |
+          for t in OpenControlsParent OpenControlsKid OpenControlsKidMonitor OpenControlsKidShieldConfig OpenControlsKidShieldAction OpenControlsTests; do
+            if grep -q "SwiftDriver $t\|SwiftCompile.*$t\|Build.*$t" build.log || grep -q "$t" build.log; then echo "built: $t"; else echo "MISSING: $t"; exit 1; fi
+          done
+          grep -c "warning:" build.log || true
+          grep "warning:" build.log | sort -u | head -40 || true
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
