@@ -1,0 +1,187 @@
+name: OpenControls
+
+# Generate the Xcode project with:  brew install xcodegen && xcodegen generate
+# Then open OpenControls.xcodeproj. See README.md for signing / entitlement setup.
+
+options:
+  bundleIdPrefix: com.example.opencontrols
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # ---- Change these two for your own Apple Developer team --------------------
+    OC_BUNDLE_PREFIX: com.example.opencontrols
+    DEVELOPMENT_TEAM: ""
+    # ---------------------------------------------------------------------------
+    OC_APP_GROUP: group.$(OC_BUNDLE_PREFIX).shared
+    OC_CLOUDKIT_CONTAINER: iCloud.$(OC_BUNDLE_PREFIX)
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+targets:
+  # ---------------------------------------------------------------- Parent app
+  OpenControlsParent:
+    type: application
+    platform: iOS
+    sources:
+      - ParentApp
+      - Shared/Core
+      - Shared/Sync
+      - Shared/UI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).parent
+        PRODUCT_NAME: OpenControlsParent
+    info:
+      path: Generated/Parent-Info.plist
+      properties:
+        CFBundleDisplayName: OpenControls Parent
+        UILaunchScreen: {}
+        UIBackgroundModes: [remote-notification]
+        OCAppGroup: $(OC_APP_GROUP)
+        OCCloudKitContainer: $(OC_CLOUDKIT_CONTAINER)
+    entitlements:
+      path: Generated/Parent.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.icloud-container-identifiers: [$(OC_CLOUDKIT_CONTAINER)]
+        com.apple.developer.icloud-services: [CloudKit]
+
+  # ------------------------------------------------------------------ Kid app
+  OpenControlsKid:
+    type: application
+    platform: iOS
+    sources:
+      - ChildApp
+      - Shared/Core
+      - Shared/Sync
+      - Shared/UI
+      - Shared/Enforcement
+    dependencies:
+      - target: OpenControlsKidMonitor
+      - target: OpenControlsKidShieldConfig
+      - target: OpenControlsKidShieldAction
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).kid
+        PRODUCT_NAME: OpenControlsKid
+    info:
+      path: Generated/Kid-Info.plist
+      properties:
+        CFBundleDisplayName: OpenControls Kid
+        UILaunchScreen: {}
+        UIBackgroundModes: [remote-notification]
+        OCAppGroup: $(OC_APP_GROUP)
+        OCCloudKitContainer: $(OC_CLOUDKIT_CONTAINER)
+        CFBundleURLTypes:
+          - CFBundleURLName: $(OC_BUNDLE_PREFIX).pairing
+            CFBundleURLSchemes: [opencontrolskid]
+    entitlements:
+      path: Generated/Kid.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [$(OC_APP_GROUP)]
+        com.apple.developer.icloud-container-identifiers: [$(OC_CLOUDKIT_CONTAINER)]
+        com.apple.developer.icloud-services: [CloudKit]
+
+  # ------------------------------------------------------ Kid app extensions
+  OpenControlsKidMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ChildMonitor
+      - Shared/Core
+      - Shared/Enforcement
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).kid.monitor
+    info:
+      path: Generated/KidMonitor-Info.plist
+      properties:
+        CFBundleDisplayName: OpenControls Monitor
+        OCAppGroup: $(OC_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).DeviceActivityMonitorExtension
+    entitlements:
+      path: Generated/KidMonitor.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [$(OC_APP_GROUP)]
+
+  OpenControlsKidShieldConfig:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ChildShieldConfig
+      - Shared/Core
+      - Shared/Enforcement
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).kid.shieldconfig
+    info:
+      path: Generated/KidShieldConfig-Info.plist
+      properties:
+        CFBundleDisplayName: OpenControls Shield
+        OCAppGroup: $(OC_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldConfigurationExtension
+    entitlements:
+      path: Generated/KidShieldConfig.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [$(OC_APP_GROUP)]
+
+  OpenControlsKidShieldAction:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ChildShieldAction
+      - Shared/Core
+      - Shared/Enforcement
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).kid.shieldaction
+    info:
+      path: Generated/KidShieldAction-Info.plist
+      properties:
+        CFBundleDisplayName: OpenControls Shield Actions
+        OCAppGroup: $(OC_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldActionExtension
+    entitlements:
+      path: Generated/KidShieldAction.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [$(OC_APP_GROUP)]
+
+  # -------------------------------------------------------------------- Tests
+  OpenControlsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - Shared/Core
+      - Shared/Sync
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(OC_BUNDLE_PREFIX).tests
+
+schemes:
+  OpenControls:
+    build:
+      targets:
+        OpenControlsParent: all
+        OpenControlsKid: all
+    test:
+      targets: [OpenControlsTests]
